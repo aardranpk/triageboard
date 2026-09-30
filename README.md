@@ -1,6 +1,6 @@
 ﻿# TriageBoard
 
-!\[CI](https://github.com/aardranpk/triageboard/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/aardranpk/triageboard/actions/workflows/ci.yml/badge.svg)
 
 
 
