@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.aardranpk.triageboard.analyst.Analyst;
 import com.aardranpk.triageboard.analyst.AnalystRepository;
+import java.util.UUID;
+
 
 @SpringBootTest
 @Transactional
@@ -24,7 +26,8 @@ class IncidentRepositoryTest {
 
     @Test
     void savesIncidentWithTimestampsAndAssignee() {
-        Analyst analyst = analystRepository.save(new Analyst("Alex Chen", "alex.chen@example.com"));
+        String email = "alex.chen+" + UUID.randomUUID() + "@example.com";
+        Analyst analyst = analystRepository.save(new Analyst("Alex Chen", email));
         Incident incident = new Incident("Suspicious login burst", "50 failed logins in 2 minutes");
         incident.assignTo(analyst);
 

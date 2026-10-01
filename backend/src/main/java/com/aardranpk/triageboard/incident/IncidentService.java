@@ -56,7 +56,7 @@ public class IncidentService {
         }
 
         incident.assignTo(analyst);
-        return IncidentResponse.from(incident);
+        return flushAndMap(incident);
     }
 
     public IncidentResponse start(Long incidentId) {
@@ -66,14 +66,14 @@ public class IncidentService {
                     "Only ASSIGNED incidents can be started (current: " + incident.getStatus() + ")");
         }
         incident.start();
-        return IncidentResponse.from(incident);
+        return flushAndMap(incident);
     }
 
     public IncidentResponse close(Long incidentId) {
         Incident incident = findIncident(incidentId);
         requireNotClosed(incident);
         incident.close();
-        return IncidentResponse.from(incident);
+        return flushAndMap(incident);
     }
 
     private Incident findIncident(Long id) {
@@ -85,5 +85,11 @@ public class IncidentService {
         if (incident.getStatus() == IncidentStatus.CLOSED) {
             throw new InvalidStateException("Incident " + incident.getId() + " is already closed");
         }
+    }
+
+    // Push pending changes to the DB now so @PreUpdate sets updatedAt before we build the response.
+    private IncidentResponse flushAndMap(Incident incident) {
+        incidentRepository.flush();
+        return IncidentResponse.from(incident);
     }
 }

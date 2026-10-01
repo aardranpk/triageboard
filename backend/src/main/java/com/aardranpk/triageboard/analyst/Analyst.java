@@ -1,6 +1,7 @@
 package com.aardranpk.triageboard.analyst;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import jakarta.persistence.*;
 
@@ -35,7 +36,7 @@ public class Analyst {
 
     @PrePersist
     void onCreate() {
-        createdAt = Instant.now();
+        createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public void deactivate() { active = false; }

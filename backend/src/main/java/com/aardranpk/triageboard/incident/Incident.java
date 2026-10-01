@@ -1,6 +1,7 @@
 package com.aardranpk.triageboard.incident;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import com.aardranpk.triageboard.analyst.Analyst;
 
@@ -52,14 +53,14 @@ public class Incident {
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
-        createdAt = now;
-        updatedAt = now;
+        Instant timestamp = now();
+        createdAt = timestamp;
+        updatedAt = timestamp;
     }
 
     @PreUpdate
     void onUpdate() {
-        updatedAt = Instant.now();
+        updatedAt = now();
     }
 
     public void assignTo(Analyst analyst) {
@@ -67,13 +68,13 @@ public class Incident {
         this.status = IncidentStatus.ASSIGNED;
     }
 
-    public void close() {
-        this.status = IncidentStatus.CLOSED;
-        this.closedAt = Instant.now();
-    }
-
     public void start() {
         this.status = IncidentStatus.IN_PROGRESS;
+    }
+
+    public void close() {
+        this.status = IncidentStatus.CLOSED;
+        this.closedAt = now();
     }
 
     public void setSeverity(Severity severity) { this.severity = severity; }
@@ -87,4 +88,9 @@ public class Incident {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public Instant getClosedAt() { return closedAt; }
+
+    // Postgres stores microseconds; truncating keeps Java and DB values identical.
+    private static Instant now() {
+        return Instant.now().truncatedTo(ChronoUnit.MICROS);
+    }
 }
