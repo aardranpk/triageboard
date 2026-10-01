@@ -72,6 +72,10 @@ public class Incident {
         this.closedAt = Instant.now();
     }
 
+    public void start() {
+        this.status = IncidentStatus.IN_PROGRESS;
+    }
+
     public void setSeverity(Severity severity) { this.severity = severity; }
 
     public Long getId() { return id; }
