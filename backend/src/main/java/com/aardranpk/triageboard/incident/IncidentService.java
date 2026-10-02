@@ -1,6 +1,7 @@
 package com.aardranpk.triageboard.incident;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -8,8 +9,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.aardranpk.triageboard.analyst.Analyst;
 import com.aardranpk.triageboard.analyst.AnalystRepository;
+import com.aardranpk.triageboard.common.AfterCommit;
 import com.aardranpk.triageboard.common.InvalidStateException;
 import com.aardranpk.triageboard.common.NotFoundException;
+import com.aardranpk.triageboard.triage.TriageEntry;
+import com.aardranpk.triageboard.triage.TriageQueue;
+import com.aardranpk.triageboard.triage.WorkloadCache;
 
 @Service
 @Transactional
@@ -19,17 +24,35 @@ public class IncidentService {
 
     private final IncidentRepository incidentRepository;
     private final AnalystRepository analystRepository;
+    private final TriageQueue triageQueue;
+    private final WorkloadCache workloadCache;
 
     public IncidentService(IncidentRepository incidentRepository,
-                           AnalystRepository analystRepository) {
+                           AnalystRepository analystRepository,
+                           TriageQueue triageQueue,
+                           WorkloadCache workloadCache) {
         this.incidentRepository = incidentRepository;
         this.analystRepository = analystRepository;
+        this.triageQueue = triageQueue;
+        this.workloadCache = workloadCache;
     }
 
     public IncidentResponse create(CreateIncidentRequest request) {
         Incident incident = new Incident(request.title(), request.description());
         incident.setSeverity(request.severity());
-        return IncidentResponse.from(incidentRepository.save(incident));
+        autoAssignTarget().ifPresent(incident::assignTo);
+
+        Incident saved = incidentRepository.save(incident);
+
+        TriageEntry entry = TriageEntry.from(saved);
+        Long assigneeId = assigneeIdOf(saved);
+        AfterCommit.run(() -> {
+            triageQueue.upsert(entry);
+            if (assigneeId != null) {
+                workloadCache.increment(assigneeId);
+            }
+        });
+        return IncidentResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +78,16 @@ public class IncidentService {
             throw new InvalidStateException("Analyst " + analystId + " is inactive");
         }
 
+        Long previousAssigneeId = assigneeIdOf(incident);
         incident.assignTo(analyst);
+
+        Long newAssigneeId = analyst.getId();
+        AfterCommit.run(() -> {
+            if (previousAssigneeId != null) {
+                workloadCache.decrement(previousAssigneeId);
+            }
+            workloadCache.increment(newAssigneeId);
+        });
         return flushAndMap(incident);
     }
 
@@ -73,7 +105,25 @@ public class IncidentService {
         Incident incident = findIncident(incidentId);
         requireNotClosed(incident);
         incident.close();
+
+        Long id = incident.getId();
+        Long assigneeId = assigneeIdOf(incident);
+        AfterCommit.run(() -> {
+            triageQueue.remove(id);
+            if (assigneeId != null) {
+                workloadCache.decrement(assigneeId);
+            }
+        });
         return flushAndMap(incident);
+    }
+
+    /** Least-loaded active analyst according to the workload cache, if any. */
+    private Optional<Analyst> autoAssignTarget() {
+        return workloadCache.leastLoadedAnalyst().flatMap(analystRepository::findById);
+    }
+
+    private static Long assigneeIdOf(Incident incident) {
+        return incident.getAssignee() == null ? null : incident.getAssignee().getId();
     }
 
     private Incident findIncident(Long id) {

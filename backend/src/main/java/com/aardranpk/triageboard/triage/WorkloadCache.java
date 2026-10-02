@@ -4,10 +4,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.stereotype.Component;
+
 /**
  * Open (non-closed) incident count per active analyst.
  * Only registered (active) analysts are eligible for auto-assignment.
  */
+@Component
 public class WorkloadCache {
 
     private final Map<Long, Integer> openCounts = new HashMap<>();
@@ -51,5 +54,10 @@ public class WorkloadCache {
     public synchronized void replaceAll(Map<Long, Integer> counts) {
         openCounts.clear();
         openCounts.putAll(counts);
+    }
+
+    /** Immutable copy for read-only callers (e.g. the /api/triage/workload endpoint). */
+    public synchronized Map<Long, Integer> snapshot() {
+        return Map.copyOf(openCounts);
     }
 }

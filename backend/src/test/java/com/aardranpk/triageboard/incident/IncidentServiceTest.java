@@ -19,6 +19,10 @@ import com.aardranpk.triageboard.analyst.Analyst;
 import com.aardranpk.triageboard.analyst.AnalystRepository;
 import com.aardranpk.triageboard.common.InvalidStateException;
 import com.aardranpk.triageboard.common.NotFoundException;
+import com.aardranpk.triageboard.triage.TriageEntry;
+import com.aardranpk.triageboard.triage.TriageQueue;
+import com.aardranpk.triageboard.triage.WorkloadCache;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class IncidentServiceTest {
@@ -29,11 +33,17 @@ class IncidentServiceTest {
     @Mock
     private AnalystRepository analystRepository;
 
+    @Mock
+    private TriageQueue triageQueue;
+
+    @Mock
+    private WorkloadCache workloadCache;
+
     @InjectMocks
     private IncidentService incidentService;
 
     @Test
-    void createSavesOpenIncidentWithRequestedSeverity() {
+    void createSavesOpenIncidentWhenNoAnalystsAvailable() {
         when(incidentRepository.save(any(Incident.class))).thenAnswer(inv -> inv.getArgument(0));
 
         IncidentResponse response = incidentService.create(
@@ -41,8 +51,25 @@ class IncidentServiceTest {
 
         assertThat(response.status()).isEqualTo(IncidentStatus.OPEN);
         assertThat(response.severity()).isEqualTo(Severity.HIGH);
-        assertThat(response.title()).isEqualTo("Port scan detected");
-        verify(incidentRepository).save(any(Incident.class));
+        assertThat(response.assigneeName()).isNull();
+        verify(triageQueue).upsert(any(TriageEntry.class));
+    }
+
+    @Test
+    void createAutoAssignsLeastLoadedAnalyst() {
+        Analyst analyst = new Analyst("Alex Chen", "alex.chen@example.com");
+        ReflectionTestUtils.setField(analyst, "id", 7L);
+        when(workloadCache.leastLoadedAnalyst()).thenReturn(Optional.of(7L));
+        when(analystRepository.findById(7L)).thenReturn(Optional.of(analyst));
+        when(incidentRepository.save(any(Incident.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        IncidentResponse response = incidentService.create(
+                new CreateIncidentRequest("Ransomware beacon", null, Severity.CRITICAL));
+
+        assertThat(response.status()).isEqualTo(IncidentStatus.ASSIGNED);
+        assertThat(response.assigneeName()).isEqualTo("Alex Chen");
+        verify(triageQueue).upsert(any(TriageEntry.class));
+        verify(workloadCache).increment(7L);
     }
 
     @Test
@@ -110,6 +137,21 @@ class IncidentServiceTest {
 
         assertThat(response.status()).isEqualTo(IncidentStatus.CLOSED);
         assertThat(response.closedAt()).isNotNull();
+    }
+
+    @Test
+    void closeRemovesFromQueueAndReleasesAnalystLoad() {
+        Analyst analyst = new Analyst("Alex Chen", "alex.chen@example.com");
+        ReflectionTestUtils.setField(analyst, "id", 7L);
+        Incident incident = new Incident("Assigned alert", null);
+        ReflectionTestUtils.setField(incident, "id", 1L);
+        incident.assignTo(analyst);
+        when(incidentRepository.findById(1L)).thenReturn(Optional.of(incident));
+
+        incidentService.close(1L);
+
+        verify(triageQueue).remove(1L);
+        verify(workloadCache).decrement(7L);
     }
 
     @Test
