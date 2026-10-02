@@ -8,12 +8,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 
+import org.springframework.stereotype.Component;
+
 import com.aardranpk.triageboard.incident.Severity;
 
 /**
  * In-memory triage queue: highest severity first, then oldest, then lowest id.
  * Unscored incidents (null severity) sort last.
  */
+@Component
 public class TriageQueue {
 
     public static final Comparator<TriageEntry> PRIORITY =
