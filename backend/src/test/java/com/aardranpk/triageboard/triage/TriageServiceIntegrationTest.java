@@ -15,8 +15,11 @@ import com.aardranpk.triageboard.analyst.Analyst;
 import com.aardranpk.triageboard.analyst.AnalystRepository;
 import com.aardranpk.triageboard.incident.Incident;
 import com.aardranpk.triageboard.incident.IncidentRepository;
+import org.springframework.context.annotation.Import;
+import com.aardranpk.triageboard.TestcontainersConfiguration;
 
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 @Transactional
 class TriageServiceIntegrationTest {
 
