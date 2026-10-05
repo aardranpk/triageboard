@@ -14,21 +14,6 @@ jobs:
       run:
         working-directory: backend
 
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: triageboard
-          POSTGRES_USER: triageboard
-          POSTGRES_PASSWORD: triageboard
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U triageboard -d triageboard"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
     steps:
       - name: Check out code
         uses: actions/checkout@v5

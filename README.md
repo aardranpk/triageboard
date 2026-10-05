@@ -56,3 +56,17 @@ FastAPI service (`POST /score`) and stores the returned severity and risk score.
   the incident is still created, unscored, and a warning is logged.
 - Trade-off: the scorer call happens inside the database transaction. At higher volume,
   scoring would move before the transaction or run asynchronously.
+
+## Running tests
+
+Backend tests use [Testcontainers](https://testcontainers.com/): each run starts a fresh
+PostgreSQL 17 container, applies the Flyway migrations, and discards it afterwards, so tests
+never touch development data. Docker must be running.
+
+```powershell
+cd backend
+.\mvnw.cmd test
+
+cd ..\frontend
+npm test
+```

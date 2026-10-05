@@ -12,9 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.aardranpk.triageboard.analyst.Analyst;
 import com.aardranpk.triageboard.analyst.AnalystRepository;
 import java.util.UUID;
+import org.springframework.context.annotation.Import;
+import com.aardranpk.triageboard.TestcontainersConfiguration;
 
 
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 @Transactional
 class IncidentRepositoryTest {
 
