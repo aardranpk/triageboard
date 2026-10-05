@@ -29,6 +29,16 @@ public class Incident {
     @Column(length = 20)
     private Severity severity;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "severity_source", length = 10)
+    private SeveritySource severitySource;
+
+    @Column(name = "risk_score")
+    private Integer riskScore;
+
+    @Column(name = "detection_confidence")
+    private Double detectionConfidence;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
     private Analyst assignee;
@@ -77,13 +87,31 @@ public class Incident {
         this.closedAt = now();
     }
 
-    public void setSeverity(Severity severity) { this.severity = severity; }
+    /** Severity chosen by a person; any model score is not used. */
+    public void setManualSeverity(Severity severity) {
+        this.severity = severity;
+        this.severitySource = SeveritySource.MANUAL;
+    }
+
+    /** Severity and risk score returned by the scoring service. */
+    public void applyScore(Severity severity, int riskScore) {
+        this.severity = severity;
+        this.riskScore = riskScore;
+        this.severitySource = SeveritySource.SCORER;
+    }
+
+    public void setDetectionConfidence(Double detectionConfidence) {
+        this.detectionConfidence = detectionConfidence;
+    }
 
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public IncidentStatus getStatus() { return status; }
     public Severity getSeverity() { return severity; }
+    public SeveritySource getSeveritySource() { return severitySource; }
+    public Integer getRiskScore() { return riskScore; }
+    public Double getDetectionConfidence() { return detectionConfidence; }
     public Analyst getAssignee() { return assignee; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

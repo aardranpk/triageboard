@@ -12,6 +12,7 @@ import com.aardranpk.triageboard.analyst.AnalystRepository;
 import com.aardranpk.triageboard.common.AfterCommit;
 import com.aardranpk.triageboard.common.InvalidStateException;
 import com.aardranpk.triageboard.common.NotFoundException;
+import com.aardranpk.triageboard.scoring.ScoringClient;
 import com.aardranpk.triageboard.triage.TriageEntry;
 import com.aardranpk.triageboard.triage.TriageQueue;
 import com.aardranpk.triageboard.triage.WorkloadCache;
@@ -26,20 +27,24 @@ public class IncidentService {
     private final AnalystRepository analystRepository;
     private final TriageQueue triageQueue;
     private final WorkloadCache workloadCache;
+    private final ScoringClient scoringClient;
 
     public IncidentService(IncidentRepository incidentRepository,
                            AnalystRepository analystRepository,
                            TriageQueue triageQueue,
-                           WorkloadCache workloadCache) {
+                           WorkloadCache workloadCache,
+                           ScoringClient scoringClient) {
         this.incidentRepository = incidentRepository;
         this.analystRepository = analystRepository;
         this.triageQueue = triageQueue;
         this.workloadCache = workloadCache;
+        this.scoringClient = scoringClient;
     }
 
     public IncidentResponse create(CreateIncidentRequest request) {
         Incident incident = new Incident(request.title(), request.description());
-        incident.setSeverity(request.severity());
+        incident.setDetectionConfidence(request.detectionConfidence());
+        applySeverity(incident, request);
         autoAssignTarget().ifPresent(incident::assignTo);
 
         Incident saved = incidentRepository.save(incident);
@@ -115,6 +120,18 @@ public class IncidentService {
             }
         });
         return flushAndMap(incident);
+    }
+
+    /** Manual severity wins; otherwise ask the scorer if we have a confidence value. */
+    private void applySeverity(Incident incident, CreateIncidentRequest request) {
+        if (request.severity() != null) {
+            incident.setManualSeverity(request.severity());
+            return;
+        }
+        if (request.detectionConfidence() != null) {
+            scoringClient.score(request.detectionConfidence())
+                    .ifPresent(result -> incident.applyScore(result.severity(), result.riskScore()));
+        }
     }
 
     /** Least-loaded active analyst according to the workload cache, if any. */

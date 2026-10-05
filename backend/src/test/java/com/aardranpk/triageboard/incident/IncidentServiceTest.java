@@ -14,15 +14,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.aardranpk.triageboard.analyst.Analyst;
 import com.aardranpk.triageboard.analyst.AnalystRepository;
 import com.aardranpk.triageboard.common.InvalidStateException;
 import com.aardranpk.triageboard.common.NotFoundException;
+import com.aardranpk.triageboard.scoring.ScoreResult;
+import com.aardranpk.triageboard.scoring.ScoringClient;
 import com.aardranpk.triageboard.triage.TriageEntry;
 import com.aardranpk.triageboard.triage.TriageQueue;
 import com.aardranpk.triageboard.triage.WorkloadCache;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class IncidentServiceTest {
@@ -39,20 +41,68 @@ class IncidentServiceTest {
     @Mock
     private WorkloadCache workloadCache;
 
+    @Mock
+    private ScoringClient scoringClient;
+
     @InjectMocks
     private IncidentService incidentService;
 
-    @Test
-    void createSavesOpenIncidentWhenNoAnalystsAvailable() {
+    private void saveReturnsArgument() {
         when(incidentRepository.save(any(Incident.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    @Test
+    void createKeepsManualSeverityWithoutCallingScorer() {
+        saveReturnsArgument();
 
         IncidentResponse response = incidentService.create(
-                new CreateIncidentRequest("Port scan detected", "Source 10.0.0.5", Severity.HIGH));
+                new CreateIncidentRequest("Port scan detected", "Source 10.0.0.5", Severity.HIGH, 0.95));
 
         assertThat(response.status()).isEqualTo(IncidentStatus.OPEN);
         assertThat(response.severity()).isEqualTo(Severity.HIGH);
-        assertThat(response.assigneeName()).isNull();
+        assertThat(response.severitySource()).isEqualTo(SeveritySource.MANUAL);
+        assertThat(response.riskScore()).isNull();
+        verifyNoInteractions(scoringClient);
         verify(triageQueue).upsert(any(TriageEntry.class));
+    }
+
+    @Test
+    void createUsesScorerWhenOnlyConfidenceIsProvided() {
+        saveReturnsArgument();
+        when(scoringClient.score(0.95)).thenReturn(Optional.of(new ScoreResult(Severity.CRITICAL, 95)));
+
+        IncidentResponse response = incidentService.create(
+                new CreateIncidentRequest("Ransomware beacon", null, null, 0.95));
+
+        assertThat(response.severity()).isEqualTo(Severity.CRITICAL);
+        assertThat(response.severitySource()).isEqualTo(SeveritySource.SCORER);
+        assertThat(response.riskScore()).isEqualTo(95);
+        assertThat(response.detectionConfidence()).isEqualTo(0.95);
+    }
+
+    @Test
+    void createLeavesIncidentUnscoredWhenScorerUnavailable() {
+        saveReturnsArgument();
+        when(scoringClient.score(0.8)).thenReturn(Optional.empty());
+
+        IncidentResponse response = incidentService.create(
+                new CreateIncidentRequest("Suspicious DNS traffic", null, null, 0.8));
+
+        assertThat(response.severity()).isNull();
+        assertThat(response.severitySource()).isNull();
+        assertThat(response.detectionConfidence()).isEqualTo(0.8);
+        verify(triageQueue).upsert(any(TriageEntry.class));
+    }
+
+    @Test
+    void createWithoutSeverityOrConfidenceSkipsScorer() {
+        saveReturnsArgument();
+
+        IncidentResponse response = incidentService.create(
+                new CreateIncidentRequest("Manual report", null, null, null));
+
+        assertThat(response.severity()).isNull();
+        verifyNoInteractions(scoringClient);
     }
 
     @Test
@@ -61,10 +111,10 @@ class IncidentServiceTest {
         ReflectionTestUtils.setField(analyst, "id", 7L);
         when(workloadCache.leastLoadedAnalyst()).thenReturn(Optional.of(7L));
         when(analystRepository.findById(7L)).thenReturn(Optional.of(analyst));
-        when(incidentRepository.save(any(Incident.class))).thenAnswer(inv -> inv.getArgument(0));
+        saveReturnsArgument();
 
         IncidentResponse response = incidentService.create(
-                new CreateIncidentRequest("Ransomware beacon", null, Severity.CRITICAL));
+                new CreateIncidentRequest("Ransomware beacon", null, Severity.CRITICAL, null));
 
         assertThat(response.status()).isEqualTo(IncidentStatus.ASSIGNED);
         assertThat(response.assigneeName()).isEqualTo("Alex Chen");
