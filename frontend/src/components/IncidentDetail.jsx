@@ -2,6 +2,8 @@ import { useState } from 'react';
 import SeverityBadge from './SeverityBadge';
 import { formatStatus, timeAgo } from '../utils/format';
 
+const SOURCE_LABELS = { SCORER: 'Model', MANUAL: 'Manual' };
+
 export default function IncidentDetail({
   incident,
   analysts,
@@ -28,6 +30,16 @@ export default function IncidentDetail({
       <dl className="detail-fields">
         <dt>Severity</dt>
         <dd><SeverityBadge severity={incident.severity} /></dd>
+        <dt>Severity source</dt>
+        <dd>{SOURCE_LABELS[incident.severitySource] ?? '—'}</dd>
+        <dt>Risk score</dt>
+        <dd>{incident.riskScore != null ? `${incident.riskScore} / 100` : '—'}</dd>
+        <dt>Detection confidence</dt>
+        <dd>
+          {incident.detectionConfidence != null
+            ? `${Math.round(incident.detectionConfidence * 100)}%`
+            : '—'}
+        </dd>
         <dt>Status</dt>
         <dd>{formatStatus(incident.status)}</dd>
         <dt>Assignee</dt>

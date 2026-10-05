@@ -26,8 +26,23 @@ describe('CreateIncidentForm', () => {
       title: 'Port scan',
       description: null,
       severity: null,
+      detectionConfidence: null,
     });
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
+  });
+
+  it('sends detection confidence as a number', async () => {
+    api.createIncident.mockResolvedValue({ id: 2 });
+    const user = userEvent.setup();
+    render(<CreateIncidentForm onCreated={vi.fn()} />);
+
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Lateral movement');
+    await user.type(screen.getByRole('spinbutton', { name: 'Detection confidence' }), '0.95');
+    await user.click(screen.getByRole('button', { name: 'Create incident' }));
+
+    expect(api.createIncident).toHaveBeenCalledWith(
+      expect.objectContaining({ detectionConfidence: 0.95, severity: null }),
+    );
   });
 
   it('shows backend field errors next to the field', async () => {

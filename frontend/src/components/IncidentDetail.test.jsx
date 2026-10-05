@@ -62,4 +62,16 @@ describe('IncidentDetail', () => {
 
     expect(handlers.onAssign).toHaveBeenCalledWith(2);
   });
+  it('shows model scoring details', () => {
+    renderDetail(makeIncident({
+      severity: 'CRITICAL',
+      severitySource: 'SCORER',
+      riskScore: 95,
+      detectionConfidence: 0.95,
+    }));
+
+    expect(screen.getByText('Model')).toBeInTheDocument();
+    expect(screen.getByText('95 / 100')).toBeInTheDocument();
+    expect(screen.getByText('95%')).toBeInTheDocument();
+  });
 });
