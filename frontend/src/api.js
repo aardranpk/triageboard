@@ -1,9 +1,17 @@
+const UNREACHABLE = "Can't reach the TriageBoard API. Is the backend running?";
+
 async function request(path, options = {}) {
   const { headers, ...rest } = options;
-  const response = await fetch(`/api${path}`, {
-    ...rest,
-    headers: { 'Content-Type': 'application/json', ...headers },
-  });
+
+  let response;
+  try {
+    response = await fetch(`/api${path}`, {
+      ...rest,
+      headers: { 'Content-Type': 'application/json', ...headers },
+    });
+  } catch {
+    throw new Error(UNREACHABLE);
+  }
 
   if (response.status === 204) {
     return null;
@@ -12,7 +20,10 @@ async function request(path, options = {}) {
   const body = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const error = new Error(body?.detail ?? `Request failed with status ${response.status}`);
+    const fallback = [502, 503, 504].includes(response.status)
+      ? UNREACHABLE
+      : `Request failed with status ${response.status}`;
+    const error = new Error(body?.detail ?? fallback);
     error.status = response.status;
     error.fieldErrors = body?.errors ?? null;
     throw error;
