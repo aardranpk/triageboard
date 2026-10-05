@@ -1,9 +1,14 @@
 import SeverityBadge from './SeverityBadge';
 import { formatStatus, timeAgo } from '../utils/format';
 
-export default function TriageTable({ rows }) {
+export default function TriageTable({
+  rows,
+  selectedId = null,
+  onSelect = () => {},
+  emptyMessage = 'No open incidents.',
+}) {
   if (rows.length === 0) {
-    return <p className="empty">No open incidents.</p>;
+    return <p className="empty">{emptyMessage}</p>;
   }
 
   return (
@@ -21,9 +26,13 @@ export default function TriageTable({ rows }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id}>
+            <tr key={row.id} className={row.id === selectedId ? 'selected' : undefined}>
               <td>{row.rank}</td>
-              <td>{row.title}</td>
+              <td>
+                <button type="button" className="link-button" onClick={() => onSelect(row.id)}>
+                  {row.title}
+                </button>
+              </td>
               <td><SeverityBadge severity={row.severity} /></td>
               <td>{formatStatus(row.status)}</td>
               <td>{row.assigneeName ?? 'Unassigned'}</td>

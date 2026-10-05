@@ -1,0 +1,2 @@
+export const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+export const ACTIVE_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS'];

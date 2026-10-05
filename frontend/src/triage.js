@@ -15,3 +15,25 @@ export async function fetchTriageRows() {
   ]);
   return joinQueueWithIncidents(queue, incidents);
 }
+
+function matchesSeverity(row, severity) {
+  if (!severity) return true;
+  if (severity === 'UNSCORED') return row.severity == null;
+  return row.severity === severity;
+}
+
+function matchesAssignee(row, assignee) {
+  if (!assignee) return true;
+  if (assignee === 'UNASSIGNED') return row.assigneeId == null;
+  return String(row.assigneeId) === assignee;
+}
+
+/** Client-side filtering. An empty string means "no filter" for that field. */
+export function filterRows(rows, filters) {
+  return rows.filter(
+    (row) =>
+      matchesSeverity(row, filters.severity) &&
+      (!filters.status || row.status === filters.status) &&
+      matchesAssignee(row, filters.assignee),
+  );
+}
