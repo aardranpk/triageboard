@@ -7,6 +7,7 @@ export default function CreateIncidentForm({ onCreated }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [severity, setSeverity] = useState('');
+  const [confidence, setConfidence] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -21,6 +22,7 @@ export default function CreateIncidentForm({ onCreated }) {
         title,
         description: description || null,
         severity: severity || null,
+        detectionConfidence: confidence === '' ? null : Number(confidence),
       });
       onCreated();
     } catch (err) {
@@ -61,15 +63,39 @@ export default function CreateIncidentForm({ onCreated }) {
         )}
       </label>
 
-      <label className="field">
-        <span>Severity</span>
-        <select value={severity} onChange={(e) => setSeverity(e.target.value)} disabled={submitting}>
-          <option value="">Unscored</option>
-          {SEVERITIES.map((s) => (
-            <option key={s} value={s}>{formatStatus(s)}</option>
-          ))}
-        </select>
-      </label>
+      <div className="form-row">
+        <label className="field">
+          <span>Severity</span>
+          <select value={severity} onChange={(e) => setSeverity(e.target.value)} disabled={submitting}>
+            <option value="">Unscored</option>
+            {SEVERITIES.map((s) => (
+              <option key={s} value={s}>{formatStatus(s)}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Detection confidence</span>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.01"
+            placeholder="0.00 – 1.00"
+            value={confidence}
+            onChange={(e) => setConfidence(e.target.value)}
+            disabled={submitting}
+          />
+          {fieldErrors.detectionConfidence && (
+            <small className="field-error">{fieldErrors.detectionConfidence}</small>
+          )}
+        </label>
+      </div>
+
+      <p className="hint">
+        Leave severity as Unscored and enter a detection confidence to have the risk model
+        score the incident. A manually chosen severity always takes priority.
+      </p>
 
       {error && <p className="error" role="alert">{error}</p>}
 
