@@ -36,7 +36,8 @@ class IncidentControllerTest {
     private static IncidentResponse sample(long id, IncidentStatus status) {
         Instant now = Instant.parse("2026-09-30T12:00:00Z");
         return new IncidentResponse(id, "Port scan detected", null, status,
-                Severity.HIGH, null, null, now, now, null);
+                Severity.HIGH, SeveritySource.MANUAL, null, null,
+                null, null, now, now, null);
     }
 
     @Test
@@ -106,6 +107,19 @@ class IncidentControllerTest {
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.analystId").exists());
+
+        verifyNoInteractions(incidentService);
+    }
+
+    @Test
+    void createRejectsConfidenceOutsideZeroToOne() throws Exception {
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title": "Port scan", "detectionConfidence": 1.5}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.detectionConfidence").exists());
 
         verifyNoInteractions(incidentService);
     }

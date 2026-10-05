@@ -44,3 +44,15 @@ then cost O(a) to re-position. With a small analyst pool, a linear scan is simpl
     in-memory state out of sync.
 - Two incidents created at the same instant may both go to the same analyst (load is
   incremented after commit); the result is a slight imbalance, never an error.
+
+## Severity scoring
+
+When an incident is created with a `detectionConfidence` (0–1) and no manual severity,
+TriageBoard calls the [intrusion-risk-scoring-ai](https://github.com/aardranpk/intrusion-risk-scoring-ai)
+FastAPI service (`POST /score`) and stores the returned severity and risk score.
+
+- A manually supplied severity always wins; the scorer is not called.
+- If the scorer is unreachable, slow (2 s timeout), or returns an unexpected response,
+  the incident is still created, unscored, and a warning is logged.
+- Trade-off: the scorer call happens inside the database transaction. At higher volume,
+  scoring would move before the transaction or run asynchronously.
