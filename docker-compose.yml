@@ -3,18 +3,49 @@ services:
     image: postgres:17
     container_name: triageboard-postgres
     environment:
-      POSTGRES_DB: triageboard
-      POSTGRES_USER: triageboard
-      POSTGRES_PASSWORD: triageboard
+      POSTGRES_DB: ${POSTGRES_DB:-triageboard}
+      POSTGRES_USER: ${POSTGRES_USER:-triageboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-triageboard}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U triageboard -d triageboard"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  scorer:
+    build:
+      context: ${SCORER_CONTEXT:-https://github.com/aardranpk/intrusion-risk-scoring-ai.git#master}
+    container_name: triageboard-scorer
+    ports:
+      - "8000:8000"
+
+  backend:
+    build: ./backend
+    container_name: triageboard-backend
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-triageboard}
+      DB_USERNAME: ${POSTGRES_USER:-triageboard}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-triageboard}
+      SCORER_URL: http://scorer:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      scorer:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    container_name: triageboard-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:
